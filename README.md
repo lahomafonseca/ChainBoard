@@ -1,4 +1,5 @@
 # Development notes
+# Development notes
 # ChainBoard
 
 A decentralized message board DApp where users can post messages, comment, and like using wallet identities.
