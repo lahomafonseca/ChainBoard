@@ -1,0 +1,10 @@
+{
+  "name": "chainboard",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "echo build placeholder (no deps installed)",
+    "test": "echo test placeholder (no deps installed)",
+    "lint": "echo lint placeholder"
+  }
+}

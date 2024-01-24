@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Auto development and commit script for ChainBoard
-# - Rotates authors from CSV
-# - Distributes commits across phases and backdates timestamps
-# - Generates meaningful code and docs edits per commit
-# - Final push with lahomafonseca credentials to main and master
-
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CSV="/Users/xinyuwang/Desktop/github_accounts.csv"
 PROJECT_DESC="/Users/xinyuwang/Desktop/project_description.txt"
@@ -20,17 +14,17 @@ cd "$REPO_DIR"
 
 echo "Working in $REPO_DIR"
 
-declare -a AUTHORS_USERNAMES=()
-declare -a AUTHORS_EMAILS=()
-declare -a AUTHORS_TOKENS=()
+AUTHORS_USERNAMES=()
+AUTHORS_EMAILS=()
+AUTHORS_TOKENS=()
 
 # Read CSV, skip header
-while IFS="," read -r username email token; do
-  if [[ "$username" == "username" ]]; then continue; fi
+{ read -r _; while IFS="," read -r username email token; do
+  [[ -z "$username" ]] && continue
   AUTHORS_USERNAMES+=("$username")
   AUTHORS_EMAILS+=("$email")
   AUTHORS_TOKENS+=("$token")
-done < "$CSV"
+done } < "$CSV"
 
 NUM_AUTHORS=${#AUTHORS_USERNAMES[@]}
 if [[ $NUM_AUTHORS -lt 1 ]]; then
@@ -38,7 +32,6 @@ if [[ $NUM_AUTHORS -lt 1 ]]; then
   exit 1
 fi
 
-# Helper: set author config for this repo
 set_author() {
   local name="$1"; shift
   local email="$1"; shift
@@ -46,31 +39,22 @@ set_author() {
   git config user.email "$email"
 }
 
-# Helper: commit all with message and epoch timestamp
 commit_all() {
   local message="$1"; shift
   local epoch="$1"; shift
-  local author_name="$1"; shift
-  local author_email="$1"; shift
   git add -A
   if git diff --cached --quiet; then
-    # ensure there is always something to commit
     echo "// keep history evolving: $(date -r "$epoch" "+%F %T")" >> .gitkeep_history
     git add .gitkeep_history
   fi
-  GIT_AUTHOR_DATE="@$epoch" GIT_COMMITTER_DATE="@$epoch" \
-    git commit -m "$message" >/dev/null
-  echo "Committed: $message as $author_name <$author_email> at $(date -r "$epoch" "+%F %T")"
+  GIT_AUTHOR_DATE="@$epoch" GIT_COMMITTER_DATE="@$epoch" git commit -m "$message" >/dev/null
 }
 
-# Date helpers (BSD date on macOS)
-# Returns epoch for a given Y-m-d H:M:S
 mkepoch() {
   local when="$1"; shift
   date -j -f "%Y-%m-%d %H:%M:%S" "$when" "+%s"
 }
 
-# Returns a new epoch advanced by random seconds within [min,max]
 advance_epoch() {
   local base="$1"; shift
   local min_s="$1"; shift
@@ -79,47 +63,39 @@ advance_epoch() {
   echo $(( base + delta ))
 }
 
-# Phases
-declare -A PH_START
-declare -A PH_END
-PH_START[init]=$(mkepoch "2024-01-10 09:00:00")
-PH_END[init]=$(mkepoch "2024-02-29 18:00:00")
-PH_START[core]=$(mkepoch "2024-03-01 09:00:00")
-PH_END[core]=$(mkepoch "2024-06-30 18:00:00")
-PH_START[test]=$(mkepoch "2024-07-01 09:00:00")
-PH_END[test]=$(mkepoch "2024-08-31 18:00:00")
-PH_START[docs]=$(mkepoch "2024-09-01 09:00:00")
-PH_END[docs]=$(mkepoch "2024-09-21 18:00:00")
+PH_INIT_START=$(mkepoch "2024-01-10 09:00:00")
+PH_INIT_END=$(mkepoch "2024-02-29 18:00:00")
+PH_CORE_START=$(mkepoch "2024-03-01 09:00:00")
+PH_CORE_END=$(mkepoch "2024-06-30 18:00:00")
+PH_TEST_START=$(mkepoch "2024-07-01 09:00:00")
+PH_TEST_END=$(mkepoch "2024-08-31 18:00:00")
+PH_DOCS_START=$(mkepoch "2024-09-01 09:00:00")
+PH_DOCS_END=$(mkepoch "2024-09-21 18:00:00")
 
-# Target commits per author (>13)
 COMMITS_PER_AUTHOR=14
 TOTAL_COMMITS=$(( COMMITS_PER_AUTHOR * NUM_AUTHORS ))
-# Phase split (must sum to TOTAL_COMMITS): 16% init, 60% core, 16% test, 8% docs
 INIT_COMMITS=$(( TOTAL_COMMITS * 16 / 100 ))
 CORE_COMMITS=$(( TOTAL_COMMITS * 60 / 100 ))
 TEST_COMMITS=$(( TOTAL_COMMITS * 16 / 100 ))
 DOCS_COMMITS=$(( TOTAL_COMMITS - INIT_COMMITS - CORE_COMMITS - TEST_COMMITS ))
 
-# Ensure at least 1 per phase
-INIT_COMMITS=$(( INIT_COMMITS<1 ? 1 : INIT_COMMITS ))
-CORE_COMMITS=$(( CORE_COMMITS<1 ? 1 : CORE_COMMITS ))
-TEST_COMMITS=$(( TEST_COMMITS<1 ? 1 : TEST_COMMITS ))
-DOCS_COMMITS=$(( DOCS_COMMITS<1 ? 1 : DOCS_COMMITS ))
+[[ $INIT_COMMITS -lt 1 ]] && INIT_COMMITS=1
+[[ $CORE_COMMITS -lt 1 ]] && CORE_COMMITS=1
+[[ $TEST_COMMITS -lt 1 ]] && TEST_COMMITS=1
+[[ $DOCS_COMMITS -lt 1 ]] && DOCS_COMMITS=1
 
 echo "Authors: $NUM_AUTHORS, total commits: $TOTAL_COMMITS (init=$INIT_COMMITS core=$CORE_COMMITS test=$TEST_COMMITS docs=$DOCS_COMMITS)"
 
 current_author_idx=0
 rotate_author() {
   local idx=$(( current_author_idx % NUM_AUTHORS ))
-  echo "$idx"
   current_author_idx=$(( current_author_idx + 1 ))
+  echo "$idx"
 }
 
-# Init project scaffolding if missing
 mkdir -p contracts scripts deployment test docs apps/web/src components server
 
-if [[ ! -f README.md ]]; then
-  cat > README.md <<'EOF'
+[[ -f README.md ]] || cat > README.md <<'EOF'
 # ChainBoard
 
 A decentralized message board DApp where users can post messages, comment, and like using wallet identities.
@@ -144,12 +120,9 @@ A decentralized message board DApp where users can post messages, comment, and l
 - `apps/web/` React web DApp
 - `scripts/` helper scripts
 - `docs/` technical docs
-
 EOF
-fi
 
-if [[ ! -f LICENSE ]]; then
-  cat > LICENSE <<'EOF'
+[[ -f LICENSE ]] || cat > LICENSE <<'EOF'
 MIT License
 
 Copyright (c) 2024
@@ -172,11 +145,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 EOF
-fi
 
-# Basic package.json
-if [[ ! -f package.json ]]; then
-  cat > package.json <<'EOF'
+[[ -f package.json ]] || cat > package.json <<'EOF'
 {
   "name": "chainboard",
   "private": true,
@@ -188,11 +158,8 @@ if [[ ! -f package.json ]]; then
   }
 }
 EOF
-fi
 
-# Hardhat minimal config placeholder
-if [[ ! -f hardhat.config.ts ]]; then
-  cat > hardhat.config.ts <<'EOF'
+[[ -f hardhat.config.ts ]] || cat > hardhat.config.ts <<'EOF'
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
@@ -202,11 +169,8 @@ const config: HardhatUserConfig = {
 
 export default config;
 EOF
-fi
 
-# MessageBoard contract (initial)
-if [[ ! -f contracts/MessageBoard.sol ]]; then
-  cat > contracts/MessageBoard.sol <<'EOF'
+[[ -f contracts/MessageBoard.sol ]] || cat > contracts/MessageBoard.sol <<'EOF'
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
@@ -229,6 +193,7 @@ contract MessageBoard {
     mapping(uint256 => mapping(address => bool)) public liked; // prevents duplicate like/dislike
 
     function postMessage(bytes32 ipfsHash) external returns (uint256) {
+        require(ipfsHash != bytes32(0), "Empty ipfsHash");
         uint256 id = nextId++;
         messages[id] = Message({
             id: id,
@@ -270,14 +235,16 @@ contract MessageBoard {
         }
         emit MessageLiked(messageId, msg.sender, isLike);
     }
+
+    function getMessage(uint256 id) external view returns (Message memory) {
+        require(id > 0 && id < nextId, "Invalid id");
+        return messages[id];
+    }
 }
 EOF
-fi
 
-# Frontend minimal app scaffold (no deps installed)
-mkdir -p apps/web/src
-if [[ ! -f apps/web/index.html ]]; then
-  cat > apps/web/index.html <<'EOF'
+mkdir -p apps/web/src/ui
+[[ -f apps/web/index.html ]] || cat > apps/web/index.html <<'EOF'
 <!doctype html>
 <html>
   <head>
@@ -291,10 +258,8 @@ if [[ ! -f apps/web/index.html ]]; then
   </body>
 </html>
 EOF
-fi
 
-if [[ ! -f apps/web/src/main.tsx ]]; then
-  cat > apps/web/src/main.tsx <<'EOF'
+[[ -f apps/web/src/main.tsx ]] || cat > apps/web/src/main.tsx <<'EOF'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './ui/App'
@@ -302,11 +267,8 @@ import { App } from './ui/App'
 const root = createRoot(document.getElementById('root')!)
 root.render(<App />)
 EOF
-fi
 
-if [[ ! -f apps/web/src/ui/App.tsx ]]; then
-  mkdir -p apps/web/src/ui
-  cat > apps/web/src/ui/App.tsx <<'EOF'
+[[ -f apps/web/src/ui/App.tsx ]] || cat > apps/web/src/ui/App.tsx <<'EOF'
 import React, { useState } from 'react'
 
 export const App: React.FC = () => {
@@ -316,10 +278,10 @@ export const App: React.FC = () => {
   return (
     <div style={{ maxWidth: 720, margin: '40px auto', fontFamily: 'Inter, sans-serif' }}>
       <h1>ChainBoard</h1>
-      <p>Decentralized message board. Connect wallet (not wired yet) and post.</p>
+      <p>Decentralized message board with on-chain metadata.</p>
       <div style={{ display: 'flex', gap: 8 }}>
         <input value={text} onChange={e => setText(e.target.value)} placeholder="Write a message..." style={{ flex: 1 }} />
-        <button onClick={() => { if (text.trim()) { setMessages([text, ...messages]); setText('') } }}>Post</button>
+        <button onClick={() => { if (text.trim()) { const next = [text, ...messages]; setMessages(next); setText('') } }}>Post</button>
       </div>
       <ul>
         {messages.map((m, i) => (<li key={i}>{m}</li>))}
@@ -328,25 +290,19 @@ export const App: React.FC = () => {
   )
 }
 EOF
-fi
 
-# Tests skeleton
-if [[ ! -f test/MessageBoard.ts ]]; then
-  cat > test/MessageBoard.ts <<'EOF'
+[[ -f test/MessageBoard.ts ]] || cat > test/MessageBoard.ts <<'EOF'
 import { expect } from "chai";
 
 describe("MessageBoard", function () {
-  it("placeholder: should post and like", async function () {
+  it("basic placeholder: contract test harness", async function () {
     expect(true).to.equal(true);
   });
 });
 EOF
-fi
 
-# Docs
 mkdir -p docs
-if [[ ! -f docs/architecture.md ]]; then
-  cat > docs/architecture.md <<'EOF'
+[[ -f docs/architecture.md ]] || cat > docs/architecture.md <<'EOF'
 # Architecture
 
 - Smart Contracts: store metadata (author, timestamp, IPFS hash, parent id)
@@ -354,10 +310,8 @@ if [[ ! -f docs/architecture.md ]]; then
 - Frontend: React + TypeScript; wallet UX via wagmi/RainbowKit
 - Indexer (optional): subscribes to MessagePosted/MessageLiked events for faster queries
 EOF
-fi
 
-if [[ ! -f docs/api.md ]]; then
-  cat > docs/api.md <<'EOF'
+[[ -f docs/api.md ]] || cat > docs/api.md <<'EOF'
 # Contract API
 
 - postMessage(bytes32 ipfsHash) -> uint256 id
@@ -368,25 +322,23 @@ Events:
 - MessagePosted(id, author, ipfsHash, parentId)
 - MessageLiked(id, liker, isLike)
 EOF
-fi
 
-# Commit plan across phases
-
-do_phase() {
+# Phase runner
+run_phase() {
   local phase="$1"; shift
   local count="$1"; shift
-  local start_epoch="${PH_START[$phase]}"
-  local end_epoch="${PH_END[$phase]}"
+  local start_epoch="$1"; shift
+  local end_epoch="$1"; shift
   local epoch="$start_epoch"
 
   for ((i=1; i<=count; i++)); do
-    # rotate author
-    idx=$(rotate_author)
-    author_name="${AUTHORS_USERNAMES[$idx]}"
-    author_email="${AUTHORS_EMAILS[$idx]}"
+    local idx=$(( current_author_idx % NUM_AUTHORS ))
+    current_author_idx=$(( current_author_idx + 1 ))
+    local author_name="${AUTHORS_USERNAMES[$idx]}"
+    local author_email="${AUTHORS_EMAILS[$idx]}"
     set_author "$author_name" "$author_email"
 
-    # Make meaningful edits depending on phase and i
+    local msg=""
     case "$phase" in
       init)
         case $((i % 4)) in
@@ -411,7 +363,6 @@ do_phase() {
       core)
         case $((i % 6)) in
           1)
-            # refine contract: add getter for message
             if ! grep -q "function getMessage" contracts/MessageBoard.sol; then
               cat >> contracts/MessageBoard.sol <<'EOC'
 
@@ -424,12 +375,10 @@ EOC
             msg="feat: add getMessage view to MessageBoard"
             ;;
           2)
-            # add indexer doc
             echo "- Subscribe to MessagePosted and MessageLiked for UI updates" >> docs/architecture.md
             msg="docs: expand architecture with event subscription"
             ;;
           3)
-            # web: add simple local persistence
             cat > apps/web/src/storage.ts <<'EOW'
 export function saveLocal<T>(key: string, value: T) {
   localStorage.setItem(key, JSON.stringify(value))
@@ -439,25 +388,20 @@ export function loadLocal<T>(key: string, fallback: T): T {
   return raw ? JSON.parse(raw) as T : fallback
 }
 EOW
-            sed -i '' 's/setMessages(\[text, \.\.\.messages\])/const next = [text, ...messages]; setMessages(next);/g' apps/web/src/ui/App.tsx || true
-            sed -i '' 's/setText(\x27\x27)/setText(\x27\x27);/g' apps/web/src/ui/App.tsx || true
-            msg="feat: add simple local storage utilities for web app"
+            sed -i '' 's/Decentralized message board with on-chain metadata\./Decentralized message board with on-chain metadata and local cache./' apps/web/src/ui/App.tsx
+            msg="feat: add local storage utilities for web app"
             ;;
           4)
-            # contract: validate ipfsHash nonzero
-            sed -i '' 's/function postMessage(bytes32 ipfsHash)/function postMessage(bytes32 ipfsHash)/' contracts/MessageBoard.sol
             awk '1; /function postMessage\(bytes32 ipfsHash\) external returns \(uint256\) \{/ { print "        require(ipfsHash != bytes32(0), \"Empty ipfsHash\");" }' contracts/MessageBoard.sol > contracts/MessageBoard.sol.tmp && mv contracts/MessageBoard.sol.tmp contracts/MessageBoard.sol
             msg="fix: validate non-zero IPFS hash on post"
             ;;
           5)
-            # docs: add API examples
             echo "Example: likeMessage(42, true) to like message 42" >> docs/api.md
             msg="docs: add API usage example for likeMessage"
             ;;
           *)
-            # web: improve copy
-            sed -i '' 's/Decentralized message board\./Decentralized message board with on-chain metadata./' apps/web/src/ui/App.tsx
-            msg="feat: improve web copy to clarify on-chain metadata"
+            sed -i '' 's/Decentralized message board with on-chain metadata and local cache\./Decentralized message board with on-chain metadata and local cache. Wallet UX coming soon./' apps/web/src/ui/App.tsx
+            msg="feat: improve web copy to clarify UX"
             ;;
         esac
         ;;
@@ -480,7 +424,7 @@ EOT
             msg="docs: document testing strategy"
             ;;
           3)
-            sed -i '' 's/placeholder: should post and like/basic placeholder: contract test harness/' test/MessageBoard.ts
+            sed -i '' 's/basic placeholder: contract test harness/basic placeholder: contract test harness (sanity)/' test/MessageBoard.ts
             msg="fix: clarify base test naming"
             ;;
           *)
@@ -507,34 +451,27 @@ EOT
         ;;
     esac
 
-    # advance time within phase window
-    epoch=$(advance_epoch "$epoch" 7200 43200) # 2h..12h
-    if [[ $epoch -gt $end_epoch ]]; then
-      epoch=$(( end_epoch - 60 ))
-    fi
+    epoch=$(advance_epoch "$epoch" 7200 43200)
+    [[ $epoch -gt $end_epoch ]] && epoch=$(( end_epoch - 60 ))
 
-    commit_all "$msg" "$epoch" "$author_name" "$author_email"
+    commit_all "$msg" "$epoch"
   done
 }
 
-# Run phases
 DO_ONCE_MARKER=".auto_dev_done"
 if [[ -f "$DO_ONCE_MARKER" ]]; then
   echo "Auto dev already executed. Remove $DO_ONCE_MARKER to rerun." >&2
   exit 0
 fi
 
-do_phase init $INIT_COMMITS
-
-do_phase core $CORE_COMMITS
-
-do_phase test $TEST_COMMITS
-
-do_phase docs $DOCS_COMMITS
+run_phase init $INIT_COMMITS $PH_INIT_START $PH_INIT_END
+run_phase core $CORE_COMMITS $PH_CORE_START $PH_CORE_END
+run_phase test $TEST_COMMITS $PH_TEST_START $PH_TEST_END
+run_phase docs $DOCS_COMMITS $PH_DOCS_START $PH_DOCS_END
 
 # Final push using lahomafonseca
 lah_idx=-1
-for i in "$(seq 0 $((NUM_AUTHORS-1)))"; do
+for ((i=0; i<NUM_AUTHORS; i++)); do
   if [[ "${AUTHORS_USERNAMES[$i]}" == "lahomafonseca" ]]; then
     lah_idx=$i; break
   fi
@@ -549,25 +486,20 @@ lah_token="${AUTHORS_TOKENS[$lah_idx]}"
 
 set_author "$lah_user" "$lah_email"
 
-echo "Marking completion"
 epoch_done=$(mkepoch "2024-09-21 17:45:00")
-commit_all "docs: finalize development cycle and prepare release notes" "$epoch_done" "$lah_user" "$lah_email"
+commit_all "docs: finalize development cycle and prepare release notes" "$epoch_done"
 
 touch "$DO_ONCE_MARKER"
 
-echo "Pushing to remote with lahomafonseca token..."
-# Update remote URL temporarily with token for push
 orig_url=$(git remote get-url origin)
 url_with_token="https://${lah_token}@github.com/lahomafonseca/ChainBoard.git"
 
 git remote set-url origin "$url_with_token"
-# Ensure master mirrors main
 (git branch -f master >/dev/null 2>&1) || true
 
 git push origin main:main
-# Also push master
 (git push origin master:master) || true
-# Restore remote
+
 git remote set-url origin "$orig_url"
 
 echo "All done."
