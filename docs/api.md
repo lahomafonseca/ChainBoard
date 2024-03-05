@@ -9,3 +9,4 @@ Events:
 - MessageLiked(id, liker, isLike)
 Example: likeMessage(42, true) to like message 42
 Example: likeMessage(42, true) to like message 42
+Example: likeMessage(42, true) to like message 42
