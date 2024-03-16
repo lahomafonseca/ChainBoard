@@ -7,3 +7,4 @@
 Events:
 - MessagePosted(id, author, ipfsHash, parentId)
 - MessageLiked(id, liker, isLike)
+Example: likeMessage(42, true) to like message 42
