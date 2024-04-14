@@ -7,3 +7,4 @@
 - Subscribe to MessagePosted and MessageLiked for UI updates
 - Subscribe to MessagePosted and MessageLiked for UI updates
 - Subscribe to MessagePosted and MessageLiked for UI updates
+- Subscribe to MessagePosted and MessageLiked for UI updates
