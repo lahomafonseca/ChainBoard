@@ -26,6 +26,7 @@ contract MessageBoard {
         require(ipfsHash != bytes32(0), "Empty ipfsHash");
         require(ipfsHash != bytes32(0), "Empty ipfsHash");
         require(ipfsHash != bytes32(0), "Empty ipfsHash");
+        require(ipfsHash != bytes32(0), "Empty ipfsHash");
         uint256 id = nextId++;
         messages[id] = Message({
             id: id,
