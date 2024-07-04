@@ -16,3 +16,4 @@
 - Subscribe to MessagePosted and MessageLiked for UI updates
 - Optimize storage layout discussion
 - Optimize storage layout discussion
+- Optimize storage layout discussion
