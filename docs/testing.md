@@ -1,3 +1,4 @@
 - Testing strategy: unit tests for contract logic; integration via UI mocks
 - Testing strategy: unit tests for contract logic; integration via UI mocks
 - Testing strategy: unit tests for contract logic; integration via UI mocks
+- Testing strategy: unit tests for contract logic; integration via UI mocks
