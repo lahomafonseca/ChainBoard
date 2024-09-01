@@ -26,3 +26,4 @@ A decentralized message board DApp where users can post messages, comment, and l
 - `scripts/` helper scripts
 - `docs/` technical docs
 ## Deployment\n- Use Hardhat to deploy and verify contracts.
+## Security\n- Reentrancy-safe like flow; duplicate vote prevention via mapping.
