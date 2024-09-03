@@ -31,3 +31,4 @@ A decentralized message board DApp where users can post messages, comment, and l
 ## Security\n- Reentrancy-safe like flow; duplicate vote prevention via mapping.
 ## Deployment\n- Use Hardhat to deploy and verify contracts.
 ## Security\n- Reentrancy-safe like flow; duplicate vote prevention via mapping.
+## Deployment\n- Use Hardhat to deploy and verify contracts.
