@@ -1,6 +1,3 @@
-# Development notes
-# Development notes
-# Development notes
 # ChainBoard
 
 A decentralized message board DApp where users can post messages, comment, and like using wallet identities.
@@ -25,10 +22,8 @@ A decentralized message board DApp where users can post messages, comment, and l
 - `apps/web/` React web DApp
 - `scripts/` helper scripts
 - `docs/` technical docs
-## Deployment\n- Use Hardhat to deploy and verify contracts.
-## Security\n- Reentrancy-safe like flow; duplicate vote prevention via mapping.
-## Deployment\n- Use Hardhat to deploy and verify contracts.
-## Security\n- Reentrancy-safe like flow; duplicate vote prevention via mapping.
-## Deployment\n- Use Hardhat to deploy and verify contracts.
-## Security\n- Reentrancy-safe like flow; duplicate vote prevention via mapping.
-## Deployment\n- Use Hardhat to deploy and verify contracts.
+## Deployment
+- Use Hardhat to deploy and verify contracts.
+
+## Security
+- Reentrancy-safe like flow; duplicate vote prevention via mapping.
